@@ -241,67 +241,49 @@ for(i in 1:k){
   cat(texhot[3],"\n \n")
 }
 
-library("ldatuning")
 
-result <- FindTopicsNumber(
-  JSS_dtm,
-  topics = seq(from = 10, to = 30, by = 1),
-  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
-  method = "Gibbs",
-  control = list(seed = 77),
-  mc.cores = 2L,
-  verbose = TRUE
-)
-
-FindTopicsNumber_plot(result)
 
 
 dir()
 
-nsfw <- readChar("nsfw_r.txt", file.info("nsfw_r.txt")$size)
-
-require(stringr)
-
-nsfw <- str_split(nsfw," ")[[1]]
-nsfw <- nsfw[nchar(nsfw) > 0]
-
-train$requester_subreddits_at_request
-
-train$nsfw_sub <- 0
-
-for(i in 1:nrow(train)){
-  all_sub <- train[i,"requester_subreddits_at_request"]
-  if(!is.na(all_sub)){
-    all_sub <- str_split(all_sub,"; ")[[1]]
-    if(any(sapply(all_sub, function(x) any(x==nsfw)))) train[i,"nsfw_sub"] <- 1
-  }
-}
-
-ddply(train, .(nsfw_sub), summarize,  PizzaR=mean(requester_received_pizza))
+# nsfw <- readChar("nsfw_r.txt", file.info("nsfw_r.txt")$size)
+# 
+# nsfw <- str_split(nsfw," ")[[1]]
+# nsfw <- nsfw[nchar(nsfw) > 0]
+# 
+# train$nsfw_sub <- 0
+# 
+# for(i in 1:nrow(train)){
+#   all_sub <- train[i,"requester_subreddits_at_request"]
+#   if(!is.na(all_sub)){
+#     all_sub <- str_split(all_sub,"; ")[[1]]
+#     if(any(sapply(all_sub, function(x) any(x==nsfw)))) train[i,"nsfw_sub"] <- 1
+#   }
+# }
 
 
 test.topics <- posterior(jss_TM,)
 
-train$date <- as.POSIXct(as.numeric(train$unix_timestamp_of_request_utc), origin="1970-01-01",tz = "US/Central")
-
-train$time <- hour(train$date) + minute(train$date) / 60
-train$day  <- wday(train$date,label=FALSE)
-
-getSeason <- function(DATES) {
-  WS <- as.Date("2012-12-15", format = "%Y-%m-%d") # Winter Solstice
-  SE <- as.Date("2012-3-15",  format = "%Y-%m-%d") # Spring Equinox
-  SS <- as.Date("2012-6-15",  format = "%Y-%m-%d") # Summer Solstice
-  FE <- as.Date("2012-9-15",  format = "%Y-%m-%d") # Fall Equinox
-  
-  # Convert dates from any year to 2012 dates
-  d <- as.Date(strftime(DATES, format="2012-%m-%d"))
-  
-  ifelse (d >= WS | d < SE, "Winter",
-          ifelse (d >= SE & d < SS, "Spring",
-                  ifelse (d >= SS & d < FE, "Summer", "Fall")))
-}
-
-train$season <- getSeason(train$date)
+# train$date <- as.POSIXct(as.numeric(train$unix_timestamp_of_request_utc), origin="1970-01-01",tz = "US/Central")
+# 
+# train$time <- hour(train$date) + minute(train$date) / 60
+# train$day  <- wday(train$date,label=FALSE)
+# 
+# getSeason <- function(DATES) {
+#   WS <- as.Date("2012-12-15", format = "%Y-%m-%d") # Winter Solstice
+#   SE <- as.Date("2012-3-15",  format = "%Y-%m-%d") # Spring Equinox
+#   SS <- as.Date("2012-6-15",  format = "%Y-%m-%d") # Summer Solstice
+#   FE <- as.Date("2012-9-15",  format = "%Y-%m-%d") # Fall Equinox
+#   
+#   # Convert dates from any year to 2012 dates
+#   d <- as.Date(strftime(DATES, format="2012-%m-%d"))
+#   
+#   ifelse (d >= WS | d < SE, "Winter",
+#           ifelse (d >= SE & d < SS, "Spring",
+#                   ifelse (d >= SS & d < FE, "Summer", "Fall")))
+# }
+# 
+# train$season <- getSeason(train$date)
 
 train$title_nchar <- nchar(train$request_title)
 train$textr_nchar <- nchar(train$request_text_edit_aware)
@@ -338,8 +320,8 @@ gg_commentsraop <- ggplot(train, aes(x=requester_number_of_comments_in_raop_at_r
 gg_requester_account_age_in_days_at_request <- ggplot(train, aes(x=requester_account_age_in_days_at_request,y=requester_received_pizza)) +
   histSpikeg(requester_received_pizza ~ requester_account_age_in_days_at_request, lowess = TRUE, data=train)
 
-# gg_requester_upvotes_minus_downvotes_at_request <- ggplot(train, aes(x=requester_upvotes_minus_downvotes_at_request,y=requester_received_pizza)) +
-#   histSpikeg(requester_received_pizza ~ requester_upvotes_minus_downvotes_at_request, lowess = TRUE, data=train)
+gg_requester_upvotes_minus_downvotes_at_request <- ggplot(train, aes(x=requester_upvotes_plus_downvotes_at_retrieval,y=requester_received_pizza)) +
+  histSpikeg(requester_received_pizza ~ requester_upvotes_plus_downvotes_at_retrieval, lowess = TRUE, data=train)
 
 gg_requester_days_since_first_post_on_raop_at_request <- ggplot(train, aes(x=requester_days_since_first_post_on_raop_at_request,y=requester_received_pizza)) +
   histSpikeg(requester_received_pizza ~ requester_days_since_first_post_on_raop_at_request, lowess = TRUE, data=train)
@@ -352,3 +334,30 @@ gg_requester_number_of_posts_on_raop_at_request <- ggplot(train, aes(x=requester
 
 s <- summary ( requester_received_pizza ~ img_ev + emb_ev + nsfw_sub + season + requester_number_of_posts_on_raop_at_request, data = train )
 plot (s , main = "henk", subtitles = FALSE ) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# library("ldatuning")
+# 
+# result <- FindTopicsNumber(
+#   JSS_dtm,
+#   topics = seq(from = 10, to = 30, by = 1),
+#   metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+#   method = "Gibbs",
+#   control = list(seed = 77),
+#   mc.cores = 2L,
+#   verbose = TRUE
+# )
+# 
+# FindTopicsNumber_plot(result)
