@@ -291,13 +291,13 @@ train$textr_nchar <- nchar(train$request_text_edit_aware)
 train$imgemb_ev <- as.numeric(str_detect(train$request_text_edit_aware,"imgur") | str_detect(train$request_text_edit_aware,"\\["))
 
 gg_time <- ggplot(train, aes(x=time,y=requester_received_pizza)) +
-  histSpikeg(requester_received_pizza ~ time, lowess = TRUE, data=train)
+  histSpikeg(requester_received_pizza ~ time, lowess = TRUE, data=train) + theme_bw()
 
 gg_day <- ggplot(train, aes(x=day,y=requester_received_pizza)) +
   histSpikeg(requester_received_pizza ~ day, lowess = TRUE, data=train)
 
 gg_daytime <- ggplot(train, aes(x=time,y=requester_received_pizza,color=day)) +
-  histSpikeg(requester_received_pizza ~ time + day, lowess = TRUE, data=train)
+  histSpikeg(requester_received_pizza ~ time + day, lowess = TRUE, data=train) + theme_bw()
 
 gg_seastime <- ggplot(train, aes(x=time,y=requester_received_pizza,color=season)) +
   histSpikeg(requester_received_pizza ~ time + season, lowess = TRUE, data=train)

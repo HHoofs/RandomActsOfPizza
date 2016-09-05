@@ -50,7 +50,8 @@ remove_HTML_markup <- function(s) tryCatch({
 json <- fromJSON(file='train.json')
 
 # final data
-train <- as.data.frame(do.call("rbind", lapply(json, process_row)))
+train <- as.data.frame(do.call("rbind", 
+                               lapply(json, process_row)))
 
 # factor to character
 train <-
@@ -168,7 +169,7 @@ train$top[is.na(train$top)] <- sample(1:5,sum(is.na(train$top)),replace = TRUE)
 
 #### Univariate #####################
 s <- summary(requester_received_pizza ~ top + imgemb_ev + nsfw_sub + season + day + form_request, data = train )
-plot (s , main = "henk", subtitles = FALSE ) 
+plot (s , main = "Train (RaoP)", subtitles = FALSE ) 
 
 #### Pred model #####################
 train_pred <- train
@@ -203,6 +204,21 @@ Fit.SelIV  <- attributes(Fit.Val)$kept
 Fit.SelIVc <- colSums(Fit.SelIV)
 Fit.SelIVc <- Fit.SelIVc/1000
 
+Data.Ret <- data.frame(Var=names(Fit.SelIVc),Ret=Fit.SelIVc)
+Data.Ret$Var <- factor(Data.Ret$Var,levels = Data.Ret$Var[order(-Data.Ret$Ret)],ordered = TRUE)
+# Data.Ret$Keep <- as.numeric(Data.Ret$Ret > Options.Per * (Options.N_boot * Options.N_imp))
+# Data.Ret$Keep[1:length(Var.Forced)] <- 2
+Data.Ret <- Data.Ret[!is.na(Data.Ret$Var),]
+
+# pdf(paste(Text.Prefix,"//RetentionPlot.pdf",sep=""),width =  11.69, height = 11.69)
+ggplot(Data.Ret,aes(x=factor(Var),y=Ret)) +
+  geom_bar(stat="identity",colour="black") +
+  scale_x_discrete("") + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="none")
+# dev.off()
+
 formF <- "requester_received_pizza ~ top + imgemb_ev + season + rcs(time,4) + day + form_request + rcs(textr_nchar,3) + 
                                        rcs(requester_days_since_first_post_on_raop_at_request,3) +
                                        rcs(requester_number_of_subreddits_at_request,3) + 
@@ -211,10 +227,12 @@ formF <- "requester_received_pizza ~ top + imgemb_ev + season + rcs(time,4) + da
 Fit.RegF  <- lrm(formula = as.formula(formF),data = train_pred, x = TRUE, y = TRUE)
  
 Final.ValF <- validate(Fit.RegF,B = 1000)
-Final.ValF <- rbind(Final.ValF,(Final.Val[1,]+1)/2)
+Final.ValF <- rbind(Final.ValF,(Final.ValF[1,]+1)/2)
 rownames(Final.ValF)[nrow(Final.ValF)] <- "C"
 Final.ValF["C","optimism"] <- Final.ValF["C","optimism"] - .5
+Final.ValF["C","n"] <- 1000
 
+write.table(round(Final.ValF,3),"Validate.csv",sep = ";",row.names = TRUE,col.names = NA,dec = ".")
 
 #### EXTERNAL: Data ########################
 # To get started we're load the training data and convert it from JSON to a DataFrame
@@ -353,12 +371,49 @@ it.RegF <- Fit.RegF
 
 it.RegF$coefficients <- c(coef(intercept_new),coef_new)
 
-pred.logit <- predict(Fit.RegF, train)
+pred.logit2 <- predict(Fit.RegF, test)
+phat <- 1/(1+exp(-pred.logit2))
+
+require(pROC)
+
+plot.roc(train[,"requester_received_pizza"],phat,smooth=TRUE,ci=TRUE)
+
+
+pred.logit2 <- predict(Fit.RegF, train)
+phat2 <- 1/(1+exp(-pred.logit2))
+
+
+rocobj <- plot.roc(train[,"requester_received_pizza"],
+                   phat2,  
+                   main="Confidence intervals", 
+                   percent=TRUE,  
+                   smooth=FALSE,
+                   ci=FALSE, # compute AUC (of AUC by default)
+                   print.auc=TRUE) 
+
+spec_sens <- data.frame(spec=rocobj$specificities,sens=rocobj$sensitivities)
+
+ggplot(spec_sens,aes(x=100-spec,y=sens))+geom_line(size = 2, alpha = 1)+
+  labs(title= "ROC curve", 
+       x = "Specificity", 
+       y = "Sensitivity") +
+  scale_x_continuous(breaks=c(0,25,50,75,100),labels=c(100,75,50,25,0)) +
+  geom_abline(intercept = 0, slope = 1) +
+  theme_bw()
+
+ciobj <- ci.se(rocobj, # CI of sensitivity  
+               specificities=seq(0, 100, 5)) # over a select set of specificities  
+
+plot(ciobj, type="shape", col="#1c61b6AA") # plot as a blue shape  
+# plot(ci(rocobj, of="thresholds", thresholds="best")) # add one threshold
+
+wordcloud()
+
+pred.logit <- predict(it.RegF, test)
 phat <- 1/(1+exp(-pred.logit))
 
-plot.roc(train[,"requester_received_pizza"],phat,smooth=FALSE)
+test_out <- data.frame(request_id=test$request_id,requester_received_pizza=NA)
 
+test_out$requester_received_pizza <- phat
 
-pred.logit <- predict(Fit.RegF, test)
-phat <- 1/(1+exp(-pred.logit))
-
+write.csv(test_out,row.names = FALSE,file="submission_hhoofs.csv")
